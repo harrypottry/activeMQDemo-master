@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:amq="http://activemq.apache.org/schema/core"
+       xmlns:jms="http://www.springframework.org/schema/jms"
+       xmlns:c="http://www.springframework.org/schema/c"
+       xmlns:cache="http://www.springframework.org/schema/cache"
+       xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+       xmlns:jee="http://www.springframework.org/schema/jee"
+       xmlns:lang="http://www.springframework.org/schema/lang"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd
+		http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee-4.0.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.0.xsd
+		http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.0.xsd
+		http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core-5.8.0.xsd
+        http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms-4.0.xsd
+	    http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-4.0.xsd
+		http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc-4.0.xsd
+		http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache-4.0.xsd
+		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-4.0.xsd
+		http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang-4.0.xsd
+		http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.0.xsd
+        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!--aop切面注解-->
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
+
+
+    <context:annotation-config/>
+    <!--扫描包-->
+    <context:component-scan base-package="oldboy"/>
+
+
+    <import resource="spring-mvc.xml"/>
+
+    <!--mq配置-->
+    <!--mq的消息中心,brokerURL中心的位置-->
+    <amq:connectionFactory brokerURL="tcp://localhost:61616" userName="admin" password="admin"
+                           id="amqconnectionFactory"/>
+
+    <!--spring和jms的连接targetConnectionFactory是写死的-->
+    <bean id="connectionFactory" class="org.springframework.jms.connection.CachingConnectionFactory">
+        <property name="targetConnectionFactory" ref="amqconnectionFactory"/>
+        <!--缓存大小-->
+        <property name="sessionCacheSize" value="10"/>
+    </bean>
+
+    <!--配置两种模式-->
+    <!--点对点模式-->
+    <!--发布订阅-->
+    <!--id为jmsTemplate，可能id会重复-->
+    <bean id="queueTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <constructor-arg ref="connectionFactory"/>
+        <!--不接收 pubSubDomain:是不是队列-->
+        <property name="pubSubDomain" value="false"/>
+        <!--消息不会持久化了-->
+        <!--<property name="deliveryMode" value="1"/>-->
+    </bean>
+
+    <!--订阅者-->
+    <bean id="topicTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <constructor-arg ref="connectionFactory"/>
+        <!--接收-->
+        <property name="pubSubDomain" value="true"/>
+    </bean>
+
+    <!--监听-->
+    <!--acknowledge消息课靠性传输，属性auto默认自动确认机制，-->
+    <!-- prefetch="100" 传输次数，和幂有关系-->
+    <!--destination-type=urableTopic可以设置持久化和非持久化-->
+    <!--接收信息queue点对点-->
+    <jms:listener-container destination-type="queue" connection-factory="connectionFactory">
+        <!-- destination监听的对列-->
+        <jms:listener destination="oldboy.queue" ref="queueReceicer_one"/>
+        <jms:listener destination="oldboy.queue" ref="queueReceicer_two"/>
+    </jms:listener-container>
+
+
+    <!--发送信息queue发布订阅-->
+    <jms:listener-container destination-type="topic" connection-factory="connectionFactory">
+        <!--destination监听的对列-->
+        <jms:listener destination="oldboy.topic" ref="topicReceicer_one"/>
+        <jms:listener destination="oldboy.topic" ref="topicReceicer_two"/>
+    </jms:listener-container>
+
+
+
+
+</beans>
